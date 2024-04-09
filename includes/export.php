@@ -43,9 +43,11 @@ function export_patterns(): void {
 		export_pattern( $synced_pattern->ID, $synced_pattern, true );
 	}
 
-	patterns_redirect( [
-		'action' => 'blockify_export_patterns',
-	] );
+	patterns_redirect(
+		array(
+			// 'action' => 'blockify_export_patterns',
+		)
+	);
 }
 
 /**
@@ -56,17 +58,17 @@ function export_patterns(): void {
  * @return array
  */
 function get_nav_menus(): array {
-	static $nav_menus = [];
+	static $nav_menus = array();
 
 	if ( ! empty( $nav_menus ) ) {
 		return $nav_menus;
 	}
 
 	$nav_menus = get_posts(
-		[
+		array(
 			'post_type'      => 'wp_navigation',
 			'posts_per_page' => 100,
-		]
+		)
 	);
 
 	return $nav_menus;
@@ -136,18 +138,18 @@ function replace_reusable_blocks( string $html = '' ): string {
  */
 function replace_template_blocks( string $html = '' ): string {
 	return str_replace(
-		[
+		array(
 			'wp:blockify/template-part',
 			'wp:blockify/pattern',
 			'wp:blockify/post-content',
 			'"constrained":true',
-		],
-		[
+		),
+		array(
 			'wp:template-part',
 			'wp:pattern',
 			'wp:post-content',
 			'"layout":{"type":"constrained"}',
-		],
+		),
 		$html
 	);
 }
@@ -165,7 +167,7 @@ function replace_template_blocks( string $html = '' ): string {
  */
 function replace_image_paths( string $html, string $content_dir ): string {
 	$regex       = "/\b(?:(?:https?|ftp):\/\/|www\.)[-a-z0-9+&@#\/%?=~_|!:,.;]*[-a-z0-9+&@#\/%=~_|]/i";
-	$types       = [ 'jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'mov', 'svg', 'webm' ];
+	$types       = array( 'jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'mov', 'svg', 'webm' );
 	$upload_dir  = wp_upload_dir();
 	$content_dir = trailingslashit( $content_dir );
 	$stylesheet  = get_stylesheet();
@@ -213,16 +215,12 @@ function replace_image_paths( string $html, string $content_dir ): string {
 
 		if ( $type === 'svg' ) {
 			$sub_dir = 'svg';
-		} else {
-			if ( $type === 'mp4' || $type === 'mov' ) {
+		} elseif ( $type === 'mp4' || $type === 'mov' ) {
 				$sub_dir = 'video';
-			} else {
-				if ( $type === 'gif' ) {
-					$sub_dir = 'gif';
-				} else {
-					$sub_dir = 'img';
-				}
-			}
+		} elseif ( $type === 'gif' ) {
+				$sub_dir = 'gif';
+		} else {
+			$sub_dir = 'img';
 		}
 
 		$new_dir = $asset_dir . $sub_dir . DS;
@@ -288,20 +286,17 @@ function export_pattern( int $post_ID, ?WP_Post $post, bool $update ): int {
 		return $post_ID;
 	}
 
-	$slug = sanitize_title_with_dashes( $post->post_title ?? '' );
+	$slug = $post->post_name;
 
 	if ( ! $slug ) {
 		return $post_ID;
 	}
+	$namespaced_slug = get_stylesheet() . '/' . $slug;
 
-	$explode  = explode( '-', $slug );
-	$category = $explode[0] ?? null;
+	$title = $post->post_title;
 
-	if ( ! $category ) {
-		return $post_ID;
-	}
-
-	$name = str_replace( [ $category . '-' ], '', $slug );
+	$categories = get_the_terms( $post_ID, 'wp_pattern_category' );
+	$categories = ( ! is_wp_error( $categories ) && is_array( $categories ) ) ? wp_list_pluck( $categories, 'slug' ) : array( 'uncategorized' );
 
 	$content_dir = get_content_dir();
 	$content     = $post->post_content ?? '';
@@ -310,19 +305,19 @@ function export_pattern( int $post_ID, ?WP_Post $post, bool $update ): int {
 	$content     = replace_reusable_blocks( $content );
 	$content     = replace_template_blocks( $content );
 	$content     = preg_replace( "/(^[\r\n]*|[\r\n]+)[\s\t]*[\r\n]+/", "\n", $content );
-	$content     = apply_filters( 'blockify_pattern_export_content', $content, $post, $category );
+	$content     = apply_filters( 'blockify_pattern_export_content', $content, $post, $categories[0] );
 
 	$block_types = '';
 
-	if ( $category === 'page' ) {
+	if ( in_array( 'page', $categories ) ) {
 		$block_types .= 'core/post-content,';
 	}
 
-	if ( $category === 'header' ) {
+	if ( in_array( 'header', $categories ) ) {
 		$block_types .= 'core/template-part/header,';
 	}
 
-	if ( $category === 'footer' ) {
+	if ( in_array( 'footer', $categories ) ) {
 		$block_types .= 'core/template-part/footer,';
 	}
 
@@ -336,8 +331,10 @@ function export_pattern( int $post_ID, ?WP_Post $post, bool $update ): int {
 		wp_mkdir_p( $pattern_dir );
 	}
 
-	if ( ! file_exists( $pattern_dir . $category ) ) {
-		wp_mkdir_p( $pattern_dir . $category );
+	$use_category_dirs = apply_filters( 'blockify_pattern_export_use_category_dirs', true );
+
+	if ( $use_category_dirs && ! file_exists( $pattern_dir . $categories[0] ) ) {
+		wp_mkdir_p( $pattern_dir . $categories[0] );
 	}
 
 	global $wp_filesystem;
@@ -347,21 +344,21 @@ function export_pattern( int $post_ID, ?WP_Post $post, bool $update ): int {
 		WP_Filesystem();
 	}
 
-	$title = ucwords( str_replace( '-', ' ', $category . ' ' . $name ) );
+	$categories_str = implode( ', ', $categories );
 
 	$header_comment = <<<EOF
 <?php
 /**
  * Title: $title
- * Slug: $name
- * Categories: $category
+ * Slug: $namespaced_slug
+ * Categories: $categories_str
 EOF;
 
 	if ( $block_types ) {
 		$header_comment .= "\n * $block_types";
 	}
 
-	if ( $category === 'template' ) {
+	if ( in_array( 'template', $categories ) || in_array( 'hidden', $categories ) ) {
 		$header_comment .= "\n * Template Types: $slug";
 		$header_comment .= "\n * Inserter: false";
 	}
@@ -369,10 +366,8 @@ EOF;
 	$header_comment .= "\n */\n";
 	$header_comment .= "?>\n";
 
-	$use_category_dirs = apply_filters( 'blockify_pattern_export_use_category_dirs', true );
-
 	$wp_filesystem->put_contents(
-		$pattern_dir . $category . ( $use_category_dirs ? DS : '-' ) . $name . '.php',
+		$pattern_dir . ( $use_category_dirs ? $categories[0] . DS : '' ) . $slug . '.php',
 		$header_comment . $content
 	);
 

@@ -84,9 +84,9 @@ function enqueue_pattern_admin(): void {
 	wp_enqueue_script(
 		$handle,
 		$uri . 'build/patterns.js',
-		[
+		array(
 			'wp-i18n',
-		],
+		),
 		filemtime( $dir . 'build/patterns.js' ),
 		true
 	);
@@ -94,7 +94,7 @@ function enqueue_pattern_admin(): void {
 	wp_localize_script(
 		$handle,
 		'blockifyPatterns',
-		[
+		array(
 			'nonce'         => wp_create_nonce( 'wp_rest' ),
 			'restUrl'       => esc_url_raw( rest_url() ),
 			'adminUrl'      => esc_url_raw( admin_url() ),
@@ -102,7 +102,7 @@ function enqueue_pattern_admin(): void {
 			'stylesheet'    => get_stylesheet(),
 			'stylesheetDir' => get_stylesheet_directory(),
 			'isChildTheme'  => is_child_theme(),
-		]
+		)
 	);
 }
 
@@ -116,23 +116,25 @@ add_action( 'admin_post_blockify_delete_patterns', NS . 'delete_patterns', 11 );
  */
 function delete_patterns(): void {
 	$posts = get_posts(
-		[
+		array(
 			'post_type'      => 'wp_block',
 			'posts_per_page' => -1,
 			'post_status'    => 'publish',
-		]
+		)
 	);
 
 	foreach ( $posts as $post ) {
 		wp_delete_post( $post->ID, true );
 	}
 
-	patterns_redirect( [
-		'action' => 'blockify_delete_patterns',
-	] );
+	patterns_redirect(
+		array(
+			'action' => 'blockify_delete_patterns',
+		)
+	);
 }
 
-add_action( 'current_screen', NS . 'sort_patterns_redirect' );
+// add_action( 'current_screen', NS . 'sort_patterns_redirect' );
 /**
  * Redirects the wp_block post type to the desired URL.
  *
@@ -159,7 +161,7 @@ function sort_patterns_redirect( WP_Screen $current_screen ): void {
 	}
 }
 
-add_filter( 'manage_wp_block_posts_columns', NS . 'add_pattern_date_column' );
+// add_filter( 'manage_wp_block_posts_columns', NS . 'add_pattern_date_column' );
 /**
  * Adds a column to the wp_block post type.
  *
@@ -170,14 +172,14 @@ add_filter( 'manage_wp_block_posts_columns', NS . 'add_pattern_date_column' );
  * @return array
  */
 function add_pattern_date_column( array $columns ): array {
-	unset ( $columns['date'] );
+	unset( $columns['date'] );
 
 	$columns['date'] = __( 'Date', 'wp-patterns' );
 
 	return $columns;
 }
 
-add_filter( 'post_row_actions', NS . 'add_post_row_actions', 10, 2 );
+// add_filter( 'post_row_actions', NS . 'add_post_row_actions', 10, 2 );
 /**
  * Adds duplicate links and re-adds quick edit link.
  *
@@ -199,9 +201,11 @@ function add_post_row_actions( array $actions, WP_Post $post ) {
 
 		$actions['duplicate'] = sprintf(
 			'<a href="%s" aria-label="%s">%s</a>',
-			get_patterns_url( [
-				'duplicate_pattern' => $post->ID,
-			] ),
+			get_patterns_url(
+				array(
+					'duplicate_pattern' => $post->ID,
+				)
+			),
 			/* translators: %s: Post title. */
 			esc_attr( sprintf( __( 'Duplicate &#8220;%s&#8221;', 'pattern-editor' ), $post->post_title ) ),
 			__( 'Duplicate', 'pattern-editor' )
@@ -232,12 +236,12 @@ function duplicate_pattern(): void {
 		return;
 	}
 
-	$new_post = [
+	$new_post = array(
 		'post_title'   => $post->post_title . esc_html__( ' (Copy)', 'pattern-editor' ),
 		'post_content' => $post->post_content,
 		'post_status'  => 'draft',
 		'post_type'    => 'wp_block',
-	];
+	);
 
 	$new_post_id = wp_insert_post( $new_post );
 
@@ -254,7 +258,7 @@ function duplicate_pattern(): void {
 	patterns_redirect();
 }
 
-add_action( 'current_screen', NS . 'export_pattern_cpt' );
+// add_action( 'current_screen', NS . 'export_pattern_cpt' );
 /**
  * Enables pattern post type on export screen.
  *
@@ -271,8 +275,8 @@ function export_pattern_cpt( WP_Screen $screen ): void {
 
 	register_post_type(
 		'wp_block',
-		[
-			'labels'                => [
+		array(
+			'labels'                => array(
 				'name'               => 'Patterns',
 				'singular_name'      => 'Pattern',
 				'add_new'            => 'Add New',
@@ -285,7 +289,7 @@ function export_pattern_cpt( WP_Screen $screen ): void {
 				'not_found_in_trash' => 'No Patterns found in Trash',
 				'parent_item_colon'  => 'Parent Pattern:',
 				'menu_name'          => 'Patterns',
-			],
+			),
 			'public'                => false,
 			'rest_base'             => 'blocks',
 			'rest_controller_class' => 'WP_REST_Blocks_Controller',
@@ -301,7 +305,7 @@ function export_pattern_cpt( WP_Screen $screen ): void {
 			'exclude_from_search'   => true,
 			'publicly_queryable'    => false,
 			'capability_type'       => 'post',
-			'supports'              => [
+			'supports'              => array(
 				'title',
 				'editor',
 				'author',
@@ -312,9 +316,9 @@ function export_pattern_cpt( WP_Screen $screen ): void {
 				'revisions',
 				'page-attributes',
 				'post-formats',
-			],
+			),
 			'rewrite'               => false,
 			'show_in_rest'          => true,
-		]
+		)
 	);
 }

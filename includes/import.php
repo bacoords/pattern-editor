@@ -30,46 +30,39 @@ function import_patterns(): void {
 	$stylesheet = get_stylesheet();
 
 	foreach ( $registered as $pattern ) {
-		$theme = $pattern['theme'] ?? null;
+
+		$slug = $pattern['slug'];
+
+		$slug_split = explode( '/', $slug );
+
+		if ( count( $slug_split ) > 1 ) {
+			$theme = $slug_split[0];
+			$slug  = $slug_split[1];
+		}
 
 		if ( $theme !== $stylesheet ) {
 			continue;
 		}
 
-		$category       = $pattern['categories'][0] ?? 'uncategorized';
-		$category_title = ucwords( $category );
-		$post_title     = str_replace( $category_title . ' ', '', $pattern['title'] );
-
-		if ( $category === 'cta' ) {
-			$category_title = 'CTA';
-		}
-
-		if ( $category === 'faq' ) {
-			$category_title = 'FAQ';
-		}
-		
-		$args = [
-			'post_name'    => str_replace( $category, '-', $pattern['slug'] ),
-			'post_title'   => $category_title . ' ' . $post_title,
+		$args = array(
+			'post_name'    => $slug,
+			'post_title'   => $pattern['title'],
 			'post_content' => $pattern['content'],
 			'post_status'  => 'publish',
 			'post_type'    => 'wp_block',
-		];
+			'meta_input'   => array(
+				'wp_pattern_sync_status' => 'unsynced',
+				'wp_pattern_source'      => $pattern,
+			),
+			'tax_input'    => array(
+				'wp_pattern_category' => $pattern['categories'],
+			),
+		);
 
-		$id = $pattern['ID'] ?? null;
+		$existing = get_page_by_path( $slug, OBJECT, 'wp_block' );
 
-		if ( $id ?? null ) {
-			$existing = get_post( $id );
-
-			if ( $existing ) {
-				$args['ID'] = $id;
-			} else {
-				$args['import_id'] = $id;
-			}
-		}
-
-		if ( get_page_by_path( $pattern['slug'], OBJECT, 'wp_block' ) ) {
-			continue;
+		if ( $existing ) {
+			$args['ID'] = $existing->ID;
 		}
 
 		wp_insert_post( wp_slash( $args ) );
@@ -77,9 +70,11 @@ function import_patterns(): void {
 
 	flush_rewrite_rules();
 
-	patterns_redirect( [
-		'action' => 'blockify_import_patterns',
-	] );
+	patterns_redirect(
+		array(
+			// 'action' => 'blockify_import_patterns',
+		)
+	);
 }
 
 add_action( 'admin_notices', NS . 'pattern_import_success_notice' );

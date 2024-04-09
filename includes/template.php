@@ -33,7 +33,7 @@ function single_block_pattern_template( string $template ): string {
 	return locate_block_template(
 		get_template_directory() . '/templates/blank.html',
 		'blank',
-		[]
+		array()
 	);
 }
 
@@ -55,7 +55,7 @@ function get_pattern_preview_name(): string {
 	return $pattern_name;
 }
 
-add_filter( 'the_posts', NS . 'block_pattern_preview', -100 );
+// add_filter( 'the_posts', NS . 'block_pattern_preview', -100 );
 /**
  * Generates dynamic block pattern previews without registering a CPT.
  *
